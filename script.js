@@ -1,135 +1,86 @@
+const todo = document.getElementById("todo");
+const progress = document.getElementById("progress");
+const done = document.getElementById("done");
 
-let tasksData = {};
+const modal = document.querySelector(".modal");
+const toggleModal = document.getElementById("toggle-modal");
+const modalBg = document.querySelector(".modal .bg");
+const addTaskBtn = document.getElementById("add-new-task");
 
-const todo = document.querySelector('#todo');
-const progress = document.querySelector('#progress');
-const done = document.querySelector('#done');
-const columns = [todo,progress,done];
-let dragElement = null;
+let dragItem = null;
+let tasksData = JSON.parse(localStorage.getItem("tasks")) || {};
 
-function addTask(title, desc, column){
-    const div = document.createElement('div');
-    div.classList.add('task');
-    div.setAttribute('draggable','true');
-    div.innerHTML = `
-        <h2>${title}</h2>
+/* Create Task */
+function createTask(title, desc, column){
+    const task = document.createElement("div");
+    task.className = "task";
+    task.draggable = true;
+
+    task.innerHTML = `
+        <h3>${title}</h3>
         <p>${desc}</p>
         <button>Delete</button>
-        `;
-    column.appendChild(div);
-    div.addEventListener('drag', (e)=>{
-        dragElement = div;
-    });
+    `;
 
-    const deleteButton = div.querySelector('button');
-    deleteButton.addEventListener('click', () => {
-        div.remove();
-        updateTaskCount();
-    });
+    column.appendChild(task);
 
-    return div;
+    task.addEventListener("dragstart", () => dragItem = task);
 
+    task.querySelector("button").onclick = () => {
+        task.remove();
+        updateCounts();
+    };
 }
 
-function updateTaskCount(){
-    columns.forEach(col => {
-        const tasks = col.querySelectorAll('.task');
-        const count = col.querySelector('.right');
-        
-        tasksData[col.id] = Array.from(tasks).map(t=>{
-            return {
-                title: t.querySelector('h2').innerText,
-                desc: t.querySelector('p').innerText 
-            }
-        })
-
-        localStorage.setItem("tasks", JSON.stringify(tasksData));
-
-        count.innerText = tasks.length;
+/* Drag events */
+[ todo, progress, done ].forEach(col => {
+    col.addEventListener("dragover", e => e.preventDefault());
+    col.addEventListener("dragenter", () => col.classList.add("hover-over"));
+    col.addEventListener("dragleave", () => col.classList.remove("hover-over"));
+    col.addEventListener("drop", () => {
+        col.appendChild(dragItem);
+        col.classList.remove("hover-over");
+        updateCounts();
     });
-}
-
-if(localStorage.getItem('tasks')){
-    const data = JSON.parse(localStorage.getItem('tasks'));
-
-    console.log(data);
-
-    for(const col in data){
-        const column = document.querySelector(`#${col}`);
-        data[col].forEach(task => {
-            addTask(task.title, task.desc, column);
-        })
-    }
-    updateTaskCount();
-}
-
-const tasks = document.querySelectorAll('.task');
-
-tasks.forEach(task => {
-    task.addEventListener('drag', (e)=>{
-        dragElement = task;
-    })
-})
-
-function addDragEventsOnColumn(column){
-
-    column.addEventListener('dragenter', (e)=>{
-        e.preventDefault();
-        column.classList.add('hover-over');
-    });
-
-    column.addEventListener('dragleave', (e)=>{
-        e.preventDefault();
-        column.classList.remove('hover-over');
-    });
-
-    column.addEventListener('dragover', (e)=>{
-        e.preventDefault();
-        
-    });
-
-    column.addEventListener('drop', (e)=>{
-        e.preventDefault();
-        // console.log('dropped', dragElement, column);
-
-        column.appendChild(dragElement);
-        column.classList.remove('hover-over');
-
-        updateTaskCount();
-
-    });
-
-}
-
-addDragEventsOnColumn(todo);
-addDragEventsOnColumn(progress);
-addDragEventsOnColumn(done);
-
-const toggleModalButton = document.querySelector('#toggle-modal');
-const modal = document.querySelector('.modal');
-const modalBg = document.querySelector('.modal .bg');
-const addTaskButton = document.querySelector('#add-new-task');
-
-toggleModalButton.addEventListener('click',(e)=>{
-    modal.classList.toggle('active');
 });
 
-modalBg.addEventListener('click',(e)=>{
-    modal.classList.remove('active');
+/* Update count + storage */
+function updateCounts(){
+    [ todo, progress, done ].forEach(col => {
+        col.querySelector(".right").innerText =
+            col.querySelectorAll(".task").length;
+
+        tasksData[col.id] = [...col.querySelectorAll(".task")].map(t => ({
+            title: t.querySelector("h3").innerText,
+            desc: t.querySelector("p").innerText
+        }));
+    });
+
+    localStorage.setItem("tasks", JSON.stringify(tasksData));
+}
+
+/* Load saved tasks */
+Object.keys(tasksData).forEach(colId => {
+    tasksData[colId].forEach(t => {
+        createTask(t.title, t.desc, document.getElementById(colId));
+    });
 });
+updateCounts();
 
-addTaskButton.addEventListener('click', ()=>{
+/* Modal logic */
+toggleModal.onclick = () => modal.classList.add("active");
+modalBg.onclick = () => modal.classList.remove("active");
 
-    const taskTitle = document.querySelector('#task-title-input').value;
-    const taskDescription = document.querySelector('#task-desc-input').value;
+addTaskBtn.onclick = () => {
+    const title = document.getElementById("task-title-input").value.trim();
+    const desc = document.getElementById("task-desc-input").value.trim();
 
-    addTask(taskTitle, taskDescription, todo);
+    if(!title) return alert("Task title required!");
 
-    updateTaskCount();
-    
-    modal.classList.remove('active');
+    createTask(title, desc, todo);
+    updateCounts();
+    modal.classList.remove("active");
 
-    document.querySelector('#task-title-input').value = '';
-    document.querySelector('#task-desc-input').value = '';
-
-})
+    document.getElementById("task-title-input").value = "";
+    document.getElementById("task-desc-input").value = "";
+};
